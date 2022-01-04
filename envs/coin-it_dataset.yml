@@ -1,0 +1,5 @@
+name: coin-it_dataset
+channels:
+  - conda-forge
+  - defaults
+prefix: /home/david/miniconda3/envs/coin-it_dataset
