@@ -1,31 +1,50 @@
 from datetime import datetime
-from os import error, remove
+from os import error, path, remove, walk
+import sys
 from Historic_Crypto import Cryptocurrencies
 from Historic_Crypto import HistoricalData
 import pandas as pd
 from glob import glob
+from argparse import ArgumentParser
+from src.data.add_indicators import add_indicators
 
 """ Date comparisson based on date format of Historic_Crypto """
+
+default_start_date = '2017-05-05-00-00'
+default_crypto_currencies = [
+    'BTC', 'ETH'
+]
+default_indicators = [
+    'BollingerBands'
+]
 
 
 class DatasetMaker:
     def __init__(
             self,
-            start_date: str,
-            file_directory: str,
-            crypto_currencies: list = [
-                'BTC', 'ETH', 'SOL', 'ADA', 'SHIB', 'LTC'
-            ],
+            start_date: str = default_start_date,
+            crypto_currencies: list = default_crypto_currencies,
             granularity: int = 60,
+            file_directory: str = path.abspath('../../data/'),
+            indicators: list = default_indicators,
     ):
         self.crypto_currencies = crypto_currencies
         self.granularity = granularity
         self.start_date = start_date
         self.file_directory = file_directory
+        self.indicators = indicators
+        self.base_currency = 'EUR'
 
-    def update_datasets(self):
+    def update_indicators(self):
+        for (dirpath, _, filenames) in walk(self.file_directory + 'raw/'):
+            for filename in filenames:
+                df = pd.read_csv(dirpath + filename)
+                df = add_indicators(df, self.indicators)
+                pd.to_csv(self.file_directory + 'processed/' + filename)
+
+    def update_raw_datasets(self):
         seen = []
-        crypto_currencies = self.crypto_currencies + ['EUR']
+        crypto_currencies = self.crypto_currencies + [self.base_currency]
         for coin in crypto_currencies:
             seen.append(coin)
             pairs = Cryptocurrencies(
@@ -36,7 +55,7 @@ class DatasetMaker:
                 cryp = pair.replace(coin, '').replace('-', '')
                 if cryp not in seen and cryp in crypto_currencies:
                     # file name without end date
-                    file_name = self.file_directory + \
+                    file_name = self.file_directory + 'raw/' +\
                         pair + '--g' + str(self.granularity)
                     complete_file_name = glob(file_name + '*')
                     if complete_file_name:
@@ -107,3 +126,36 @@ class DatasetMaker:
             hour=d_2[3],
             minute=d_2[4]
         )
+
+
+def main() -> int:
+    parser = ArgumentParser(
+        description='Reading arguments for DatasetMaker.'
+    )
+    parser.add_argument(
+        '-sd', '--start_date',
+        type=str,
+        required=False,
+        default=default_start_date
+    )
+    parser.add_argument(
+        '-cc', '--crypto_currencies',
+        type=str,
+        nargs='+',
+        required=False,
+        default=default_crypto_currencies
+    )
+    args = parser.parse_args()
+    start_date = args.start_date
+    crypto_currencies = args.crypto_currencies
+    dataset_maker = DatasetMaker(
+        start_date=start_date,
+        crypto_currencies=crypto_currencies
+    )
+    dataset_maker.update_raw_datasets()
+    # dataset_maker.update_indicators()
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
