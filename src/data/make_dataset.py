@@ -1,22 +1,27 @@
-from datetime import datetime
+from datetime import date, datetime
 from os import error, path, remove, walk
+import os
 import sys
 from Historic_Crypto import Cryptocurrencies
 from Historic_Crypto import HistoricalData
 import pandas as pd
 from glob import glob
 from argparse import ArgumentParser
-from src.data.add_indicators import add_indicators
+import add_indicators
+from pprint import pprint
 
 """ Date comparisson based on date format of Historic_Crypto """
 
 default_start_date = '2017-05-05-00-00'
+default_granularity = 60
 default_crypto_currencies = [
     'BTC', 'ETH'
 ]
 default_indicators = [
     'BollingerBands'
 ]
+default_file_directory = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), '..', '..', 'data')
 
 
 class DatasetMaker:
@@ -24,8 +29,8 @@ class DatasetMaker:
             self,
             start_date: str = default_start_date,
             crypto_currencies: list = default_crypto_currencies,
-            granularity: int = 60,
-            file_directory: str = path.abspath('../../data/'),
+            granularity: int = default_granularity,
+            file_directory: str = default_file_directory,
             indicators: list = default_indicators,
     ):
         self.crypto_currencies = crypto_currencies
@@ -36,11 +41,11 @@ class DatasetMaker:
         self.base_currency = 'EUR'
 
     def update_indicators(self):
-        for (dirpath, _, filenames) in walk(self.file_directory + 'raw/'):
+        for (dirpath, _, filenames) in walk(self.file_directory + '/raw'):
             for filename in filenames:
                 df = pd.read_csv(dirpath + filename)
                 df = add_indicators(df, self.indicators)
-                pd.to_csv(self.file_directory + 'processed/' + filename)
+                pd.to_csv(self.file_directory + '/processed' + filename)
 
     def update_raw_datasets(self):
         seen = []
@@ -55,12 +60,14 @@ class DatasetMaker:
                 cryp = pair.replace(coin, '').replace('-', '')
                 if cryp not in seen and cryp in crypto_currencies:
                     # file name without end date
-                    file_name = self.file_directory + 'raw/' +\
+                    file_name = self.file_directory + '/raw/' +\
                         pair + '--g' + str(self.granularity)
                     complete_file_name = glob(file_name + '*')
                     if complete_file_name:
                         old = pd.read_csv(
-                            complete_file_name[0], index_col=0)
+                            complete_file_name[0],
+                            index_col=0
+                        )
                         start_date = self.transform_date(old.index[0])
                         end_date = self.transform_date(old.index[-1])
                         if self.compare_dates(self.start_date, start_date):
@@ -71,23 +78,77 @@ class DatasetMaker:
                             new_after = self.get_dataset(
                                 pair=pair, start_date=end_date)
                             new = new_before.append(
-                                old.iloc[1:-1]).append(new_after)
+                                old).append(new_after)
                         else:
                             if self.compare_dates(self.start_date, end_date):
                                 new_after = self.get_dataset(
                                     pair=pair, start_date=end_date)
-                                new = old.loc[start_date:].iloc[:-
-                                                                1].append(new_after)
+                                new = old.loc[start_date:].append(new_after)
                             else:
                                 new = self.get_dataset(
                                     pair=pair, start_date=end_date)
                         remove(complete_file_name[0])
                     else:
-                        new = self.get_dataset(
-                            pair=pair, start_date=self.start_date)
+                        new = self.get_dataset_recursive(
+                            file_name_suffix=file_name,
+                            pair=pair,
+                            start_date=self.start_date
+                        )
+                        # new = self.get_dataset(
+                        #     pair=pair, start_date=self.start_date)
                     now = self.transform_date(str(new.index[-1]))
                     file_name += '--sd' + self.start_date + '--ed' + now + '.csv'
                     new.to_csv(file_name)
+
+    def get_dataset_recursive(
+        self,
+        file_name_suffix: str,
+        pair: str,
+        start_date: str,
+    ) -> pd.DataFrame:
+        current_year = int(start_date[0:4])
+        current_rest = start_date[4:]
+        file_name_suffix_clean = file_name_suffix
+        file_name_suffix += '--BUFFERED.csv'
+        if datetime.now().year == current_year:
+            return self.get_dataset(
+                pair=pair,
+                start_date=start_date
+            )
+        if glob(file_name_suffix):
+            old = pd.read_csv(
+                file_name_suffix,
+                index_col=0
+            )
+            end_date = self.transform_date(old.index[-1])
+            new_after = self.get_dataset_recursive(
+                file_name_suffix=file_name_suffix_clean,
+                pair=pair,
+                start_date=end_date
+            )
+            return old.append(new_after)
+        for i in range(datetime.now().year - current_year):
+            current_start = str(current_year + i) + current_rest
+            current_end = str(current_year + i + 1) + current_rest
+            new = self.get_dataset(
+                pair=pair,
+                start_date=current_start,
+                end_date=current_end
+            )
+            if glob(file_name_suffix):
+                old = pd.read_csv(
+                    file_name_suffix,
+                    index_col=0
+                )
+                new = old.append(new)
+                remove(file_name_suffix)
+            new.to_csv(file_name_suffix)
+        complete_file = pd.read_csv(
+            file_name_suffix,
+            index_col=0
+        )
+        remove(file_name_suffix)
+        return complete_file
 
     def get_dataset(
             self,
@@ -145,13 +206,22 @@ def main() -> int:
         required=False,
         default=default_crypto_currencies
     )
+    parser.add_argument(
+        '-g', '--granularity',
+        type=int,
+        required=False,
+        default=default_granularity
+    )
     args = parser.parse_args()
     start_date = args.start_date
     crypto_currencies = args.crypto_currencies
+    granularity = args.granularity
     dataset_maker = DatasetMaker(
         start_date=start_date,
-        crypto_currencies=crypto_currencies
+        crypto_currencies=crypto_currencies,
+        granularity=granularity
     )
+    pprint(vars(dataset_maker))
     dataset_maker.update_raw_datasets()
     # dataset_maker.update_indicators()
     return 0
