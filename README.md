@@ -27,9 +27,9 @@ To create an environment execute following commands
     conda activate coin-it_%STAGE%
     conda env config vars set PYTHONPATH=$PWD/src
 
-E.g. to generate the environment for _training_, execute:
+E.g. to generate the environment for _dataset_, execute:
 
-    conda env create -f ./envs/coin-it_training.yml
+    conda env create -f ./envs/coin-it_dataset.yml
     conda activate coin-it_training
     conda env config vars set PYTHONPATH=$PWD/src
 

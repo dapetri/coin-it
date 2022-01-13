@@ -170,7 +170,7 @@ class DatasetMaker:
         return date.replace(' ', '-').replace(':', '-')[:-3]
 
     """ Date comparisson based on format '%y-%m-%d-%h-%m', if d1 is earlier than d2"""
-
+    # works only if gran is not set on daily (max)
     def compare_dates(self, date_1: str, date_2: str) -> bool:
         d_1 = [int(i) for i in date_1.split(sep='-')]
         d_2 = [int(i) for i in date_2.split(sep='-')]
