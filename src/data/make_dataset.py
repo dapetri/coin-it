@@ -12,7 +12,17 @@ from pprint import pprint
 
 """ Date comparisson based on date format of Historic_Crypto """
 
-default_start_date = '2017-05-05-00-00'
+# BTC 2017-01-01
+# ETH 2017-06-01
+# ETC
+# BCH 
+# LTC
+# USDT
+# DOGE
+# SHIB
+# XLM
+
+default_start_date = '2017-06-01-00-00'
 default_granularity = 60
 default_crypto_currencies = [
     'BTC', 'ETH'
@@ -63,6 +73,7 @@ class DatasetMaker:
                     file_name = self.file_directory + '/raw/' +\
                         pair + '--g' + str(self.granularity)
                     complete_file_name = glob(file_name + '*')
+                    # if file already exist try to keep start day as early as possible
                     if complete_file_name:
                         old = pd.read_csv(
                             complete_file_name[0],
@@ -70,23 +81,19 @@ class DatasetMaker:
                         )
                         start_date = self.transform_date(old.index[0])
                         end_date = self.transform_date(old.index[-1])
+                        # self.start_date < start_date for unchanged date bc historic_crypto returns start_date excluded
                         if self.compare_dates(self.start_date, start_date):
                             new_before = self.get_dataset(
                                 pair=pair,
                                 start_date=self.start_date,
-                                end_date=start_date)
-                            new_after = self.get_dataset(
-                                pair=pair, start_date=end_date)
-                            new = new_before.append(
-                                old).append(new_after)
-                        else:
-                            if self.compare_dates(self.start_date, end_date):
-                                new_after = self.get_dataset(
-                                    pair=pair, start_date=end_date)
-                                new = old.loc[start_date:].append(new_after)
-                            else:
-                                new = self.get_dataset(
-                                    pair=pair, start_date=end_date)
+                                end_date=start_date
+                            )
+                            old = new_before.append(old[1:])
+                        new_after = self.get_dataset(
+                            pair=pair, 
+                            start_date=end_date
+                        )
+                        new = old.append(new_after)
                         remove(complete_file_name[0])
                     else:
                         new = self.get_dataset_recursive(
@@ -94,10 +101,9 @@ class DatasetMaker:
                             pair=pair,
                             start_date=self.start_date
                         )
-                        # new = self.get_dataset(
-                        #     pair=pair, start_date=self.start_date)
+                    start = self.transform_date(str(new.index[0]))
                     now = self.transform_date(str(new.index[-1]))
-                    file_name += '--sd' + self.start_date + '--ed' + now + '.csv'
+                    file_name += '--sd' + start + '--ed' + now + '.csv'
                     new.to_csv(file_name)
 
     def get_dataset_recursive(
@@ -127,7 +133,9 @@ class DatasetMaker:
                 start_date=end_date
             )
             return old.append(new_after)
-        for i in range(datetime.now().year - current_year):
+        diff = datetime.now().year - current_year 
+        assert(diff > 1)
+        for i in range(diff - 1):
             current_start = str(current_year + i) + current_rest
             current_end = str(current_year + i + 1) + current_rest
             new = self.get_dataset(
@@ -143,12 +151,18 @@ class DatasetMaker:
                 new = old.append(new)
                 remove(file_name_suffix)
             new.to_csv(file_name_suffix)
-        complete_file = pd.read_csv(
-            file_name_suffix,
-            index_col=0
+        new = self.get_dataset(
+            pair=pair,
+            start_date=str(datetime.now().year) + current_rest
         )
+        if glob(file_name_suffix):
+            old = pd.read_csv(
+                file_name_suffix,
+                index_col=0
+            )
+            new = old.append(new)
         remove(file_name_suffix)
-        return complete_file
+        return new 
 
     def get_dataset(
             self,
