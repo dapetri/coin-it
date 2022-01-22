@@ -15,7 +15,7 @@ from pprint import pprint
 # BTC 2017-01-01
 # ETH 2017-06-01
 # ETC
-# BCH 
+# BCH
 # LTC
 # USDT
 # DOGE
@@ -34,14 +34,14 @@ default_file_directory = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), '..', '..', 'data')
 
 
-class DatasetMaker:
+class RawDatasetMaker:
     def __init__(
-            self,
-            start_date: str = default_start_date,
-            crypto_currencies: list = default_crypto_currencies,
-            granularity: int = default_granularity,
-            file_directory: str = default_file_directory,
-            indicators: list = default_indicators,
+        self,
+        start_date: str = default_start_date,
+        crypto_currencies: list = default_crypto_currencies,
+        granularity: int = default_granularity,
+        file_directory: str = default_file_directory,
+        indicators: list = default_indicators,
     ):
         self.crypto_currencies = crypto_currencies
         self.granularity = granularity
@@ -50,12 +50,12 @@ class DatasetMaker:
         self.indicators = indicators
         self.base_currency = 'EUR'
 
-    def update_indicators(self):
-        for (dirpath, _, filenames) in walk(self.file_directory + '/raw'):
-            for filename in filenames:
-                df = pd.read_csv(dirpath + filename)
-                df = add_indicators(df, self.indicators)
-                pd.to_csv(self.file_directory + '/processed' + filename)
+    # def update_indicators(self):
+    #     for (dirpath, _, filenames) in walk(self.file_directory + '/raw'):
+    #         for filename in filenames:
+    #             df = pd.read_csv(dirpath + filename)
+    #             df = add_indicators(df, self.indicators)
+    #             pd.to_csv(self.file_directory + '/processed' + filename)
 
     def update_raw_datasets(self):
         seen = []
@@ -90,7 +90,7 @@ class DatasetMaker:
                             )
                             old = new_before.append(old[1:])
                         new_after = self.get_dataset(
-                            pair=pair, 
+                            pair=pair,
                             start_date=end_date
                         )
                         new = old.append(new_after)
@@ -133,7 +133,7 @@ class DatasetMaker:
                 start_date=end_date
             )
             return old.append(new_after)
-        diff = datetime.now().year - current_year 
+        diff = datetime.now().year - current_year
         assert(diff > 1)
         for i in range(diff - 1):
             current_start = str(current_year + i) + current_rest
@@ -162,7 +162,7 @@ class DatasetMaker:
             )
             new = old.append(new)
         remove(file_name_suffix)
-        return new 
+        return new
 
     def get_dataset(
             self,
@@ -185,6 +185,7 @@ class DatasetMaker:
 
     """ Date comparisson based on format '%y-%m-%d-%h-%m', if d1 is earlier than d2"""
     # works only if gran is not set on daily (max)
+
     def compare_dates(self, date_1: str, date_2: str) -> bool:
         d_1 = [int(i) for i in date_1.split(sep='-')]
         d_2 = [int(i) for i in date_2.split(sep='-')]
@@ -230,14 +231,13 @@ def main() -> int:
     start_date = args.start_date
     crypto_currencies = args.crypto_currencies
     granularity = args.granularity
-    dataset_maker = DatasetMaker(
+    dataset_maker = RawDatasetMaker(
         start_date=start_date,
         crypto_currencies=crypto_currencies,
         granularity=granularity
     )
     pprint(vars(dataset_maker))
     dataset_maker.update_raw_datasets()
-    # dataset_maker.update_indicators()
     return 0
 
 
