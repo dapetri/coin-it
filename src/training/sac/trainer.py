@@ -1,3 +1,4 @@
+import sys
 import torch
 import numpy as np
 from stable_baselines3.common.vec_env import DummyVecEnv
@@ -101,8 +102,8 @@ class SACTrainer:
 
 
 def main():
-    pass
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
