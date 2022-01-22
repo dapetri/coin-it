@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from glob import glob
 import os
 import sys
@@ -75,18 +76,52 @@ class RawDatasetProcessor:
                 how='inner',
                 on='time',
             )
+        df = self.make_time_continuous(df)
         print(df)
-        print(df.index[0])
 
     def make_time_continuous(
         self,
         df: pd.DataFrame,
     ):
         for i in range(df.shape[0] - 1):
-            t1 = df.index[i]
-            t2 = df.index[i+1]
+            d_earlier = self.transform_date(df.index[i])
+            d_later = self.transform_date(df.index[i+1])
+            if not self.date_continuous(
+                date_earlier=d_earlier,
+                date_later=d_later,
+            ):
+                df.drop(index=i)
+        return df
 
         # TODO: implement checker if time dif bigger than gran
+
+    def transform_date(self, date: str) -> str:
+        return date.replace(' ', '-').replace(':', '-')[:-3]
+
+    def date_continuous(
+        self,
+        date_earlier: str,
+        date_later: str,
+
+    ) -> bool:
+        d_earlier = [int(i) for i in date_earlier.split(sep='-')]
+        d_later = [int(i) for i in date_later.split(sep='-')]
+        dt_earlier = datetime(
+            year=d_earlier[0],
+            month=d_earlier[1],
+            day=d_earlier[2],
+            hour=d_earlier[3],
+            minute=d_earlier[4]
+        )
+        dt_later = datetime(
+            year=d_later[0],
+            month=d_later[1],
+            day=d_later[2],
+            hour=d_later[3],
+            minute=d_later[4]
+        )
+
+        return dt_earlier + timedelta(seconds=self.granularity) == dt_later
 
 
 def main():
