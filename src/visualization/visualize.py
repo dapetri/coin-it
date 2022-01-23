@@ -13,6 +13,8 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from typing import Tuple, Dict, List
 from torch.distributions import Normal
+from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import VecVideoRecorder
 
 data_path = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), '..', '..', 'data', 'results')
@@ -166,3 +168,17 @@ def evaluate(evaluation_environment: gym.Env, soft_actor_critic,
         scores.append(rollout_score)
     mean_score = np.mean(scores)
     return {"score": mean_score}
+
+
+def visualize_rollout(soft_actor_critic, step: int):
+    # evaluation_environment = DummyVecEnv([lambda: gym.make('Pendulum-v0')])
+    # keep a second environment for evaluation purposes
+    from stable_baselines3.common.env_util import make_vec_env
+    evaluation_environment = make_vec_env('Pendulum-v0')
+    visualization_environment = VecVideoRecorder(evaluation_environment,
+                                                 video_folder=data_path,
+                                                 record_video_trigger=lambda x: x == 0,
+                                                 video_length=200,  # 200 steps per rollout
+                                                 name_prefix=f"Pendulum_{step:05d}")
+    evaluate_rollout(evaluation_environment=visualization_environment,
+                     soft_actor_critic=soft_actor_critic)

@@ -27,7 +27,7 @@ class SACArgs:
 class SACTrainer:
     def __init__(
         self,
-        args: SACArgs,
+        args: SACArgs = SACArgs(),
     ) -> None:
         self.args = args
 
@@ -60,8 +60,10 @@ class SACTrainer:
                         full_metrics[key] = []
                     full_metrics[key].append(value)
 
-                evaluation_recordings = evaluate(evaluation_environment=evaluation_environment,
-                                                 soft_actor_critic=soft_actor_critic)
+                evaluation_recordings = evaluate(
+                    evaluation_environment=evaluation_environment,
+                    soft_actor_critic=soft_actor_critic
+                )
 
                 progress_bar(_steps=logging_frequency,
                              score=evaluation_recordings.get("score"),
