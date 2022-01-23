@@ -23,10 +23,14 @@ class SoftActorCritic:
 
         # get a replay buffer and a policy network
         self.memory = ReplayBuffer(
-            buffer_limit=args["buffer_limit"], batch_size=batch_size)
+            buffer_limit=args["buffer_limit"],
+            batch_size=batch_size
+        )
 
-        self.policy = PolicyNet(learning_rate=learning_rate,
-                                entropy_alpha=args["entropy_alpha"])
+        self.policy = PolicyNet(
+            learning_rate=learning_rate,
+            entropy_alpha=args["entropy_alpha"]
+        )
 
     def train_step(self) -> Dict[str, float]:
         mini_batch = self.memory.sample()
