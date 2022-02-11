@@ -5,6 +5,7 @@ from torch import optim
 from torch.utils.data import DataLoader, random_split
 import pandas as pd
 import os
+from data.dataset import Dataset
 
 
 default_file_directory = os.path.join(
@@ -33,13 +34,18 @@ class Environment:
             file_path,
             index_col=0,
         )
+        dataset = Dataset(df)
         n_val = df.shape[0] * validation
         n_train = df.shape[0] - n_val
         # TODO: continue with torch dataset
         train_set, val_set = random_split(
-            dataset=torch.Tensor(df.values),
+            dataset=dataset,
             lengths=[n_train, n_val],
         )
+
+    # def step():
+
+    # def reset():
 
 
 def main():

@@ -34,10 +34,6 @@ class SACTrainer:
     def train(self):
         # import data
         environment = gym.make('Pendulum-v0')
-        evaluation_environment = DummyVecEnv([lambda: gym.make('Pendulum-v0')])
-        # keep a second environment for evaluation purposes.
-        # We wrap it in a Dummy Vector Environment for compatibility with
-        # the visualization utility
 
         soft_actor_critic = SoftActorCritic(args=self.args)
 
@@ -76,8 +72,6 @@ class SACTrainer:
                 v_function_visualization(evaluation_environment=evaluation_environment,
                                          soft_actor_critic=soft_actor_critic,
                                          current_step=current_step)
-                visualize_rollout(soft_actor_critic=soft_actor_critic,
-                                  step=current_step)
                 plot_metrics(full_metrics)
 
             # alternate between collecting one step of data and updating SAC with one mini-batch
