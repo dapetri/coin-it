@@ -1,59 +1,101 @@
-import asyncio, base64, hashlib, hmac, json, os, time, websockets
+# Python Example for subscribing to a channel
+import time
+import json
+import jwt
+import hashlib
+import os
+import websocket
+import threading
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
-API_KEY = str(os.environ.get("API_KEY"))
-PASSPHRASE = str(os.environ.get("PASSPHRASE"))
-SECRET_KEY = str(os.environ.get("SECRET_KEY"))
+# https://docs.cdp.coinbase.com/coinbase-app/docs/getting-started#code-samples
 
-URI = "wss://ws-feed.exchange.coinbase.com"
-SIGNATURE_PATH = "/users/self/verify"
+# Derived from your Coinbase CDP API Key
+# SIGNING_KEY: the signing key provided as a part of your API key. Also called the "SECRET KEY"
+# API_KEY: the api key provided as a part of your API key. also called the "API KEY NAME"
+load_dotenv()
+API_KEY = os.getenv("API_KEY")
+SIGNING_KEY = os.getenv("SIGNING_KEY").strip() + "\n"
 
-channel = "level2"
-product_ids = "ETH-USD"
+ALGORITHM = "ES256"
+
+if not SIGNING_KEY or not API_KEY:
+    raise ValueError("Missing mandatory environment variable(s)")
+
+CHANNEL_NAMES = {
+    "level2": "level2",
+    "user": "user",
+    "tickers": "ticker",
+    "ticker_batch": "ticker_batch",
+    "status": "status",
+    "market_trades": "market_trades",
+    "candles": "candles",
+}
+
+WS_API_URL = "wss://advanced-trade-ws.coinbase.com"
 
 
-async def generate_signature():
-    timestamp = str(time.time())
-    message = f"{timestamp}GET{SIGNATURE_PATH}"
-    hmac_key = base64.b64decode(SECRET_KEY)
-    signature = hmac.new(
-        hmac_key, message.encode("utf-8"), digestmod=hashlib.sha256
-    ).digest()
-    signature_b64 = base64.b64encode(signature).decode().rstrip("\n")
-    return signature_b64, timestamp
+def sign_with_jwt(message, channel, products=[]):
+    payload = {
+        "iss": "coinbase-cloud",
+        "nbf": int(time.time()),
+        "exp": int(time.time()) + 120,
+        "sub": API_KEY,
+    }
+    headers = {"kid": API_KEY, "nonce": hashlib.sha256(os.urandom(16)).hexdigest()}
+    token = jwt.encode(payload, SIGNING_KEY, algorithm=ALGORITHM, headers=headers)
+    message["jwt"] = token
+    return message
 
 
-async def websocket_listener():
-    signature_b64, timestamp = await generate_signature()
-    subscribe_message = json.dumps(
-        {
-            "type": "subscribe",
-            "channels": [{"name": channel, "product_ids": [product_ids]}],
-            "signature": signature_b64,
-            "key": API_KEY,
-            "passphrase": PASSPHRASE,
-            "timestamp": timestamp,
-        }
-    )
+def on_message(ws, message):
+    data = json.loads(message)
+    with open("Output1.txt", "a") as f:
+        f.write(json.dumps(data) + "\n")
 
-    while True:
-        try:
-            async with websockets.connect(URI, ping_interval=None) as websocket:
-                await websocket.send(subscribe_message)
-                while True:
-                    response = await websocket.recv()
-                    json_response = json.loads(response)
-                    print(json_response)
 
-        except (
-            websockets.exceptions.ConnectionClosedError,
-            websockets.exceptions.ConnectionClosedOK,
-        ):
-            print("Connection closed, retrying..")
-            await asyncio.sleep(1)
+def subscribe_to_products(ws, products, channel_name):
+    message = {"type": "subscribe", "channel": channel_name, "product_ids": products}
+    signed_message = sign_with_jwt(message, channel_name, products)
+    ws.send(json.dumps(signed_message))
+
+
+def unsubscribe_to_products(ws, products, channel_name):
+    message = {"type": "unsubscribe", "channel": channel_name, "product_ids": products}
+    signed_message = sign_with_jwt(message, channel_name, products)
+    ws.send(json.dumps(signed_message))
+
+
+def on_open(ws):
+    products = ["BTC-USD"]
+    subscribe_to_products(ws, products, CHANNEL_NAMES["level2"])
+
+
+def start_websocket():
+    ws = websocket.WebSocketApp(WS_API_URL, on_open=on_open, on_message=on_message)
+    ws.run_forever()
+
+
+def main():
+    ws_thread = threading.Thread(target=start_websocket)
+    ws_thread.start()
+
+    sent_unsub = False
+    start_time = datetime.now()
+
+    try:
+        while True:
+            if (datetime.now() - start_time).total_seconds() > 5 and not sent_unsub:
+                # Unsubscribe after 5 seconds
+                ws = websocket.create_connection(WS_API_URL)
+                unsubscribe_to_products(ws, ["BTC-USD"], CHANNEL_NAMES["level2"])
+                ws.close()
+                sent_unsub = True
+            time.sleep(1)
+    except Exception as e:
+        print(f"Exception: {e}")
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(websocket_listener())
-    except KeyboardInterrupt:
-        print("Exiting WebSocket..")
+    main()
