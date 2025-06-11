@@ -1,8 +1,14 @@
 from datetime import datetime
+import time
 import json
 import asyncio
 import websockets
 import json
+
+p_crypto = None
+ts_crypto = None
+p_coinbase = None
+ts_coinbase = None
 
 
 # https://docs.cdp.coinbase.com/coinbase-app/docs/trade/ws-auth
@@ -20,6 +26,7 @@ async def sub_coinbase():
             response = await ws.recv()
             data = json.loads(response)
             if data["channel"] == "ticker":
+                global p_coinbase, ts_coinbase
                 ts_coinbase = data["events"][0]["tickers"][0]["price"]
                 p_coinbase = datetime.fromtimestamp(data["timestamp"])
             else:
@@ -42,6 +49,7 @@ async def sub_crypto():
             response = await ws.recv()
             data = json.loads(response)
             if data["method"] == "subscribe":
+                global p_crypto, ts_crypto
                 p_crypto = data["result"]["data"][0]["a"]
                 ts_crypto = data["result"]["data"][0]["t"]
             elif data["method"] == "public/heartbeat":
@@ -58,3 +66,11 @@ async def sub_crypto():
 async def main():
     asyncio.create_task(sub_crypto())
     asyncio.create_task(sub_coinbase())
+    time.sleep(3)
+    while True:
+        print(f"{ts_crypto - ts_coinbase} - {p_crypto} - {p_coinbase}")
+        await asyncio.sleep(0.1)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
