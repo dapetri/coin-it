@@ -1,38 +1,60 @@
+from datetime import datetime
 import json
-from time import sleep
-from os import getenv
-from coinbase.websocket import WSClient
-from dotenv import load_dotenv
-
-load_dotenv(".env")
-API_KEY = getenv("API_KEY")
-SIGNING_KEY = getenv("SIGNING_KEY") + "\n"
-WS_API_URL = "wss://advanced-trade-ws.coinbase.com"
+import asyncio
+import websockets
+import json
 
 
-def on_message(msg):
-    data = json.loads(msg)
-    if "ticker" == data["channel"]:
-        ticker = data["events"][0]["tickers"][0]
-        print(
-            f'{data["timestamp"]} - {ticker["price"]} {ticker["best_bid"]} {ticker["best_ask"]} - {data["sequence_num"]}'
-        )
+# https://docs.cdp.coinbase.com/coinbase-app/docs/trade/ws-auth
+async def sub_coinbase():
+    url = "wss://advanced-trade-ws.coinbase.com"
+    payload = {
+        "type": "subscribe",
+        "product_ids": ["BTC-USD"],
+        "channel": "ticker",
+    }
+    async with websockets.connect(url) as ws:
+        await ws.send(json.dumps(payload))
+
+        while True:
+            response = await ws.recv()
+            data = json.loads(response)
+            if data["channel"] == "ticker":
+                ts_coinbase = data["events"][0]["tickers"][0]["price"]
+                p_coinbase = datetime.fromtimestamp(data["timestamp"])
+            else:
+                print(f"Received unhandled response: {data}")
+                exit(1)
 
 
-# https://github.com/coinbase/coinbase-advanced-py/
-client = WSClient(
-    base_url=WS_API_URL,
-    api_key=API_KEY,
-    api_secret=SIGNING_KEY,
-    on_message=on_message,
-)
+# https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html?javascript#ticker-instrument_name
+async def sub_crypto():
+    url = "wss://stream.crypto.com/v2/market"
+    payload = {
+        "id": 1,
+        "method": "subscribe",
+        "params": {"channels": ["ticker.BTC_USD"]},
+    }
+    async with websockets.connect(url) as ws:
+        await ws.send(json.dumps(payload))
+
+        while True:
+            response = await ws.recv()
+            data = json.loads(response)
+            if data["method"] == "subscribe":
+                p_crypto = data["result"]["data"][0]["a"]
+                ts_crypto = data["result"]["data"][0]["t"]
+            elif data["method"] == "public/heartbeat":
+                payload_heartbeat = {
+                    "id": data["id"],
+                    "method": "public/respond-heartbeat",
+                }
+                await ws.send(json.dumps(payload_heartbeat))
+            else:
+                print(f"Received unhandled response: {data}")
+                exit(1)
 
 
-client.open()
-client.ticker(product_ids=["BTC-USD"])
-
-# wait 10 seconds
-sleep(3)
-
-client.ticker_unsubscribe(product_ids=["BTC-USD"])
-client.close()
+async def main():
+    asyncio.create_task(sub_crypto())
+    asyncio.create_task(sub_coinbase())

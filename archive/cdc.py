@@ -5,7 +5,7 @@ import json
 
 
 # https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html?javascript#ticker-instrument_name
-async def subscribe():
+async def subscribe_cdc():
     url = "wss://stream.crypto.com/v2/market"
     payload = {
         "id": 1,
@@ -33,4 +33,4 @@ async def subscribe():
                 exit(1)
 
 
-asyncio.run(subscribe())
+asyncio.run(subscribe_cdc())
