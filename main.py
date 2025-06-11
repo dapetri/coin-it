@@ -29,10 +29,10 @@ client = WSClient(
 
 
 client.open()
-client.ticker(product_ids=["BTC-USD", "ETH-USD"])
+client.ticker(product_ids=["BTC-USD"])
 
 # wait 10 seconds
 sleep(3)
 
-client.ticker_unsubscribe(product_ids=["BTC-USD", "ETH-USD"])
+client.ticker_unsubscribe(product_ids=["BTC-USD"])
 client.close()
