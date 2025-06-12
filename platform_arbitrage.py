@@ -5,10 +5,8 @@ import asyncio
 import websockets
 import json
 
-p_crypto = None
-ts_crypto = None
-p_coinbase = None
-ts_coinbase = None
+crypto_ticker = None
+coinbase_ticker = None
 
 
 # https://docs.cdp.coinbase.com/coinbase-app/docs/trade/ws-auth
@@ -26,9 +24,8 @@ async def sub_coinbase():
             response = await ws.recv()
             data = json.loads(response)
             if data["channel"] == "ticker":
-                global p_coinbase, ts_coinbase
-                p_coinbase = data["events"][0]["tickers"][0]["price"]
-                ts_coinbase = data["timestamp"]
+                global coinbase_ticker
+                coinbase_ticker = data["events"][0]["tickers"][0]
             elif data["channel"] == "subscriptions":
                 pass
             else:
@@ -51,9 +48,8 @@ async def sub_crypto():
             response = await ws.recv()
             data = json.loads(response)
             if data["method"] == "subscribe":
-                global p_crypto, ts_crypto
-                p_crypto = data["result"]["data"][0]["a"]
-                ts_crypto = data["result"]["data"][0]["t"]
+                global crypto_ticker
+                crypto_ticker = data["result"]["data"][0]
             elif data["method"] == "public/heartbeat":
                 payload_heartbeat = {
                     "id": data["id"],
@@ -68,16 +64,13 @@ async def sub_crypto():
 async def main():
     asyncio.create_task(sub_crypto())
     asyncio.create_task(sub_coinbase())
-    while not p_crypto or not p_coinbase:
+    while not crypto_ticker or not coinbase_ticker:
         await asyncio.sleep(1)
     while True:
-        ts_crypto_dt = datetime.fromtimestamp(ts_crypto / 1000, tz=timezone.utc)
-        ts_coinbase_dt = datetime.strptime(
-            ts_coinbase[:23], "%Y-%m-%dT%H:%M:%S.%f"
-        ).replace(tzinfo=timezone.utc)
-        diff = abs(ts_crypto_dt - ts_coinbase_dt)
+        spread_crypto = float(crypto_ticker["b"]) - float(coinbase_ticker["best_ask"])
+        spread_coinbase = float(coinbase_ticker["best_bid"]) - float(crypto_ticker["k"])
         print(
-            f"{datetime.fromtimestamp(ts_crypto / 1000, tz=timezone.utc).strftime("%H:%M:%S.%f")[:-3]} - {ts_coinbase[11:23]} - {diff.seconds}.{str(diff.microseconds)[:3]} - {p_crypto} - {p_coinbase}"
+            f"Spread Crypto: {spread_crypto:.2f} | " f"Spread CB: {spread_coinbase:.2f}"
         )
         await asyncio.sleep(0.3)
 
