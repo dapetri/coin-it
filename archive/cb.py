@@ -22,6 +22,8 @@ async def subscribe_cb():
                 p = data["events"][0]["tickers"][0]["price"]
                 t = data["timestamp"]
                 print(f"{t} - {p}")
+            elif data["channel"] == "subscriptions":
+                pass
             else:
                 print(f"Received unhandled response: {data}")
                 exit(1)

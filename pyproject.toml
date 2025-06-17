@@ -5,7 +5,7 @@ description = ""
 readme = "README.md"
 requires-python = "~=3.13"
 dependencies = [
-    # "coinbase-advanced-py>=1.8.2",
+    "coinbase-advanced-py>=1.7.0",
     "python-dotenv>=1.1.0",
     # "cryptography>=45.0.4",
     # "pyjwt>=2.10.1",
